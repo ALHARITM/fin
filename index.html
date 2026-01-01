@@ -3,121 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALHARITM – OʻZBEK</title>
+    <title>Admin Panel</title>
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <style>
         body { font-family: 'Georgia', serif; max-width: 740px; margin: 0 auto; padding: 20px; }
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         
-        .publish-btn { 
-            background: #fff; border: 1px solid #b3b3b3; padding: 5px 15px; 
-            cursor: pointer; color: #b3b3b3; border-radius: 3px; font-weight: bold; font-size: 14px;
+        /* LOGIN OYNASI DIZAYNI */
+        #login-screen {
+            text-align: center; margin-top: 100px; font-family: sans-serif;
         }
-        .publish-btn.active { border-color: #333; color: #333; }
-        
-        input { width: 100%; border: none; outline: none; background: transparent; display: block; margin-bottom: 10px; }
-        #title { font-size: 34px; font-weight: bold; margin-bottom: 10px; font-family: 'Georgia', serif; }
-        #author { font-size: 16px; color: #777; margin-bottom: 20px; font-family: sans-serif; }
+        .login-input {
+            padding: 10px; margin: 5px; width: 250px; display: block; margin: 10px auto;
+            border: 1px solid #ccc; border-radius: 4px;
+        }
+        .btn {
+            background: #333; color: white; border: none; padding: 10px 20px;
+            cursor: pointer; border-radius: 4px; font-weight: bold;
+        }
+        .btn:hover { background: #555; }
 
-        /* Muharrir dizayni */
-        #editor-container { height: 400px; font-family: 'Georgia', serif; font-size: 18px; }
-        .ql-toolbar { border: none !important; border-bottom: 1px solid #eee !important; margin-bottom: 15px; }
-        .ql-container { border: none !important; }
-        .ql-editor { padding: 0; font-size: 20px; line-height: 1.6; }
-        .ql-editor.ql-blank::before { font-style: normal; color: #aaa; }
+        /* MUHARRIR DIZAYNI (Boshida yashirin bo'ladi) */
+        #editor-screen { display: none; }
+        
+        /* ... Eski stillar ... */
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .publish-btn { background: #fff; border: 1px solid #b3b3b3; padding: 5px 15px; cursor: pointer; color: #b3b3b3; border-radius: 3px; font-weight: bold; }
+        .publish-btn.active { border-color: #333; color: #333; }
+        input.article-input { width: 100%; border: none; outline: none; background: transparent; display: block; margin-bottom: 10px; }
+        #title { font-size: 34px; font-weight: bold; margin-bottom: 10px; }
+        #editor-container { height: 400px; font-size: 18px; }
     </style>
 </head>
 <body>
-    <header>
-        <div style="font-weight: bold; font-family: sans-serif; font-size: 20px;">ALHARITM</div>
-        <button class="publish-btn" id="publishBtn">PUBLISH</button>
-    </header>
 
-    <input type="text" id="title" placeholder="Title">
-    <input type="text" id="author" placeholder="Your name">
+    <div id="login-screen">
+        <h2>Admin Kirish</h2>
+        <input type="email" id="email" class="login-input" placeholder="Email">
+        <input type="password" id="password" class="login-input" placeholder="Parol">
+        <button class="btn" id="loginBtn">KIRISH</button>
+        <p id="error-msg" style="color: red; display: none;"></p>
+    </div>
 
-    <div id="editor-container"></div>
+    <div id="editor-screen">
+        <header>
+            <div style="font-weight: bold; font-family: sans-serif; font-size: 20px;">ALHARITM BLOG</div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" style="background: red; padding: 5px 10px; font-size: 12px;" id="logoutBtn">Chiqish</button>
+                <button class="publish-btn" id="publishBtn">PUBLISH</button>
+            </div>
+        </header>
+
+        <input type="text" id="title" class="article-input" placeholder="Title">
+        <input type="text" id="author" class="article-input" placeholder="Your name">
+        <div id="editor-container"></div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // Auth kutubxonalarini chaqiramiz
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // !!! O'ZINGIZNING CONFIG KODINGIZNI SHU YERGA QO'YING !!!
-        // TO'G'RILANGAN CONFIG
+        // !!! O'ZINGIZNING CONFIGINGIZ !!!
+        // !!! BU YERGA O'ZINGIZNING KONFIGURATSIYANGIZNI QO'YING !!!
         const firebaseConfig = {
             apiKey: "AIzaSyBJpPJgM7sxXB25IGDUK5jgQhdhB7fyYK4",
             authDomain: "alharitmuz.firebaseapp.com",
             projectId: "alharitmuz",
             storageBucket: "alharitmuz.firebasestorage.app",
             messagingSenderId: "289669454602",
-            appId: "1:289669454602:web:f4470c28176b7586c8b8f3", // Vergul qo'yildi
+            appId: "1:289669454602:web:f4470c28176b7586c8b8f3",
             measurementId: "G-C0Q1C9NLE7"
         };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app); // Auth ni ishga tushirish
 
-        // Quill Muharririni ulash (CDN orqali)
-        const script = document.createElement('script');
-        script.src = "https://cdn.quilljs.com/1.3.6/quill.js";
-        script.onload = () => {
-            // Muharrirni ishga tushirish
-            window.quill = new Quill('#editor-container', {
-                modules: {
-                    toolbar: [
-                        [{ 'header': [1, 2, false] }],
-                        ['bold', 'italic', 'underline', 'strike'],
-                        ['link', 'image', 'video'], // Rasm va Video tugmalari
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['clean']
-                    ]
-                },
-                placeholder: 'Your story...',
-                theme: 'snow'
-            });
+        // --- LOGIN LOGIKASI ---
+        const loginScreen = document.getElementById('login-screen');
+        const editorScreen = document.getElementById('editor-screen');
+        const emailIn = document.getElementById('email');
+        const passIn = document.getElementById('password');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const errorMsg = document.getElementById('error-msg');
 
-            // Yozganda tugmani aktivlashtirish
-            window.quill.on('text-change', check);
-        };
-        document.head.appendChild(script);
+        // Foydalanuvchi holatini tekshirish (Kirganmi yoki yo'qmi?)
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Agar kirgan bo'lsa -> Loginni yashir, Editorni ko'rsat
+                loginScreen.style.display = 'none';
+                editorScreen.style.display = 'block';
+                initEditor(); // Muharrirni yuklash
+            } else {
+                // Agar kirmagan bo'lsa -> Editorni yashir, Loginni ko'rsat
+                loginScreen.style.display = 'block';
+                editorScreen.style.display = 'none';
+            }
+        });
 
-        const btn = document.getElementById('publishBtn');
+        // Kirish tugmasi bosilganda
+        loginBtn.addEventListener('click', () => {
+            const email = emailIn.value;
+            const password = passIn.value;
+            signInWithEmailAndPassword(auth, email, password)
+                .catch((error) => {
+                    errorMsg.style.display = 'block';
+                    errorMsg.innerText = "Xato: Login yoki parol noto'g'ri!";
+                    console.error(error);
+                });
+        });
+
+        // Chiqish tugmasi
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth);
+        });
+
+
+        // --- MUHARRIR LOGIKASI (Faqat kirganda ishlaydi) ---
+        function initEditor() {
+            // Quill allaqachon yuklangan bo'lsa, qayta yuklamaymiz
+            if(window.quill) return;
+
+            const script = document.createElement('script');
+            script.src = "https://cdn.quilljs.com/1.3.6/quill.js";
+            script.onload = () => {
+                window.quill = new Quill('#editor-container', {
+                    modules: {
+                        toolbar: [
+                            [{ 'header': [1, 2, false] }],
+                            ['bold', 'italic', 'underline', 'strike'],
+                            ['link', 'image', 'video'],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['clean']
+                        ]
+                    },
+                    placeholder: 'Your story...',
+                    theme: 'snow'
+                });
+                window.quill.on('text-change', checkPublishBtn);
+            };
+            document.head.appendChild(script);
+        }
+
+        // Publish tugmasi
+        const pubBtn = document.getElementById('publishBtn');
         const titleIn = document.getElementById('title');
         const authorIn = document.getElementById('author');
 
-        function check() {
-            // Quill ichida matn bormi tekshiramiz
+        function checkPublishBtn() {
             if (titleIn.value.trim() || (window.quill && window.quill.getText().trim().length > 0)) {
-                btn.classList.add('active');
+                pubBtn.classList.add('active');
             } else {
-                btn.classList.remove('active');
+                pubBtn.classList.remove('active');
             }
         }
-        titleIn.addEventListener('input', check);
+        titleIn.addEventListener('input', checkPublishBtn);
 
-        btn.addEventListener('click', async () => {
-            if (!btn.classList.contains('active')) return;
-            
-            // Hajmni tekshirish (Firebase Firestore limiti 1MB)
-            const contentHTML = window.quill.root.innerHTML;
-            if (contentHTML.length > 900000) {
-                alert("Diqqat! Maqola hajmi juda katta (ko'p rasm yuklagan bo'lishingiz mumkin). Iltimos, rasmlarni kamaytiring.");
-                return;
-            }
-
-            btn.innerText = "SAVING...";
+        pubBtn.addEventListener('click', async () => {
+            if (!pubBtn.classList.contains('active')) return;
+            pubBtn.innerText = "SAVING...";
 
             try {
+                // Bazaga yozish (Endi faqat login qilganlar yoza oladi)
                 const docRef = await addDoc(collection(db, "stories"), {
                     title: titleIn.value,
                     author: authorIn.value,
-                    content: contentHTML, // HTML formatda (rasm va videolar bilan)
+                    content: window.quill.root.innerHTML,
                     date: new Date().toLocaleDateString()
                 });
+                // Muvaffaqiyatli bo'lsa
                 window.location.href = `article.html?id=${docRef.id}`;
             } catch (e) {
                 console.error(e);
-                alert("Xatolik: " + e.message);
-                btn.innerText = "PUBLISH";
+                alert("Xatolik! Siz tizimga kirmagansiz yoki huquqingiz yo'q.");
+                pubBtn.innerText = "PUBLISH";
             }
         });
     </script>
