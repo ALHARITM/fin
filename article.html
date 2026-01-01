@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maqola</title>
+    <style>
+        body { font-family: 'Georgia', serif; max-width: 740px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+        h1 { font-size: 40px; margin-bottom: 10px; }
+        .meta { font-family: sans-serif; color: #777; font-size: 14px; margin-bottom: 30px; }
+        .content { font-size: 21px; }
+        .loading { text-align: center; color: #777; margin-top: 50px; }
+    </style>
+</head>
+<body>
+
+    <div id="loading" class="loading">Yuklanmoqda...</div>
+    
+    <div id="main" style="display:none;">
+        <h1 id="title"></h1>
+        <div class="meta" id="meta"></div>
+        <div class="content" id="content"></div>
+        <br>
+        <a href="index.html" style="color: #777; text-decoration: none;">← Yangi maqola yozish</a>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // !!! BU YERGA O'ZINGIZNING KONFIGURATSIYANGIZNI QO'YING !!!
+        const firebaseConfig = {
+            apiKey: "AIzaSyBJpPJgM7sxXB25IGDUK5jgQhdhB7fyYK4",
+            authDomain: "alharitmuz.firebaseapp.com",
+            projectId: "alharitmuz",
+            storageBucket: "alharitmuz.firebasestorage.app",
+            messagingSenderId: "289669454602",
+            appId: "1:289669454602:web:f4470c28176b7586c8b8f3"
+	    measurementId: "G-C0Q1C9NLE7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // URL dan maqola ID sini olish (?id=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        const docId = urlParams.get('id');
+
+        async function loadStory() {
+            if (!docId) {
+                document.body.innerHTML = "<h1>Xatolik: ID topilmadi</h1>";
+                return;
+            }
+
+            const docRef = doc(db, "stories", docId);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                document.title = data.title;
+                document.getElementById('title').innerText = data.title;
+                document.getElementById('meta').innerText = `${data.author || 'Anonim'} • ${data.date}`;
+                document.getElementById('content').innerHTML = data.content;
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('main').style.display = 'block';
+            } else {
+                document.body.innerHTML = "<h1>404 - Maqola topilmadi</h1>";
+            }
+        }
+
+        loadStory();
+    </script>
+</body>
+</html>

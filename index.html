@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegra.ph Firebase</title>
+    <style>
+        body { font-family: 'Georgia', serif; max-width: 740px; margin: 0 auto; padding: 20px; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .publish-btn { background: #fff; border: 1px solid #b3b3b3; padding: 5px 10px; cursor: pointer; color: #b3b3b3; border-radius: 3px; font-weight: bold; }
+        .publish-btn.active { border-color: #333; color: #333; }
+        input, .editable-content { width: 100%; border: none; outline: none; background: transparent; display: block; }
+        #title { font-size: 40px; font-weight: bold; margin-bottom: 10px; }
+        .editable-content { font-size: 21px; min-height: 300px; white-space: pre-wrap; margin-top: 20px;}
+        [contenteditable]:empty:before { content: attr(placeholder); color: #aaa; display: block; }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="font-weight: bold; font-family: sans-serif;">Telegra.ph</div>
+        <button class="publish-btn" id="publishBtn">PUBLISH</button>
+    </header>
+
+    <input type="text" id="title" placeholder="Title">
+    <input type="text" id="author" placeholder="Your name">
+    <div class="editable-content" id="content" contenteditable="true" placeholder="Your story..."></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // !!! BU YERGA O'ZINGIZNING KONFIGURATSIYANGIZNI QO'YING !!!
+        const firebaseConfig = {
+            apiKey: "AIzaSyBJpPJgM7sxXB25IGDUK5jgQhdhB7fyYK4",
+            authDomain: "alharitmuz.firebaseapp.com",
+            projectId: "alharitmuz",
+            storageBucket: "alharitmuz.firebasestorage.app",
+            messagingSenderId: "289669454602",
+            appId: "1:289669454602:web:f4470c28176b7586c8b8f3"
+	    measurementId: "G-C0Q1C9NLE7"
+        };
+
+        // Firebaseni ishga tushirish
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Tugmalar logikasi
+        const btn = document.getElementById('publishBtn');
+        const titleIn = document.getElementById('title');
+        const contentDiv = document.getElementById('content');
+
+        // Yozganda tugmani yoqish
+        function check() {
+            if (titleIn.value.trim() || contentDiv.innerText.trim()) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+        titleIn.addEventListener('input', check);
+        contentDiv.addEventListener('input', check);
+
+        // Publish bosilganda
+        btn.addEventListener('click', async () => {
+            if (!btn.classList.contains('active')) return;
+            btn.innerText = "SAVING...";
+
+            try {
+                // Bazaga yozish
+                const docRef = await addDoc(collection(db, "stories"), {
+                    title: titleIn.value,
+                    author: document.getElementById('author').value,
+                    content: contentDiv.innerHTML,
+                    date: new Date().toLocaleDateString()
+                });
+                
+                // Muvaffaqiyatli bo'lsa, o'qish sahifasiga o'tish
+                window.location.href = `article.html?id=${docRef.id}`;
+            } catch (e) {
+                console.error("Xatolik: ", e);
+                alert("Xatolik yuz berdi! Konsolni ko'ring.");
+                btn.innerText = "PUBLISH";
+            }
+        });
+    </script>
+</body>
+</html>
