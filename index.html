@@ -3,32 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALHARITM</title>
+    <title>ALHARITM – OʻZBEK</title>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <style>
         body { font-family: 'Georgia', serif; max-width: 740px; margin: 0 auto; padding: 20px; }
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .publish-btn { background: #fff; border: 1px solid #b3b3b3; padding: 5px 10px; cursor: pointer; color: #b3b3b3; border-radius: 3px; font-weight: bold; }
+        
+        .publish-btn { 
+            background: #fff; border: 1px solid #b3b3b3; padding: 5px 15px; 
+            cursor: pointer; color: #b3b3b3; border-radius: 3px; font-weight: bold; font-size: 14px;
+        }
         .publish-btn.active { border-color: #333; color: #333; }
-        input, .editable-content { width: 100%; border: none; outline: none; background: transparent; display: block; }
-        #title { font-size: 40px; font-weight: bold; margin-bottom: 10px; }
-        .editable-content { font-size: 21px; min-height: 300px; white-space: pre-wrap; margin-top: 20px;}
-        [contenteditable]:empty:before { content: attr(placeholder); color: #aaa; display: block; }
+        
+        input { width: 100%; border: none; outline: none; background: transparent; display: block; margin-bottom: 10px; }
+        #title { font-size: 34px; font-weight: bold; margin-bottom: 10px; font-family: 'Georgia', serif; }
+        #author { font-size: 16px; color: #777; margin-bottom: 20px; font-family: sans-serif; }
+
+        /* Muharrir dizayni */
+        #editor-container { height: 400px; font-family: 'Georgia', serif; font-size: 18px; }
+        .ql-toolbar { border: none !important; border-bottom: 1px solid #eee !important; margin-bottom: 15px; }
+        .ql-container { border: none !important; }
+        .ql-editor { padding: 0; font-size: 20px; line-height: 1.6; }
+        .ql-editor.ql-blank::before { font-style: normal; color: #aaa; }
     </style>
 </head>
 <body>
     <header>
-        <div style="font-weight: bold; font-family: sans-serif;">ALHARITM</div>
+        <div style="font-weight: bold; font-family: sans-serif; font-size: 20px;">ALHARITM</div>
         <button class="publish-btn" id="publishBtn">PUBLISH</button>
     </header>
 
     <input type="text" id="title" placeholder="Title">
     <input type="text" id="author" placeholder="Your name">
-    <div class="editable-content" id="content" contenteditable="true" placeholder="Your story..."></div>
+
+    <div id="editor-container"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        // !!! O'ZINGIZNING CONFIG KODINGIZNI SHU YERGA QO'YING !!!
         // TO'G'RILANGAN CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyBJpPJgM7sxXB25IGDUK5jgQhdhB7fyYK4",
@@ -39,51 +53,73 @@
             appId: "1:289669454602:web:f4470c28176b7586c8b8f3", // Vergul qo'yildi
             measurementId: "G-C0Q1C9NLE7"
         };
-
-        // Firebaseni ishga tushirish
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Tugmalar logikasi
+        // Quill Muharririni ulash (CDN orqali)
+        const script = document.createElement('script');
+        script.src = "https://cdn.quilljs.com/1.3.6/quill.js";
+        script.onload = () => {
+            // Muharrirni ishga tushirish
+            window.quill = new Quill('#editor-container', {
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        ['link', 'image', 'video'], // Rasm va Video tugmalari
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['clean']
+                    ]
+                },
+                placeholder: 'Your story...',
+                theme: 'snow'
+            });
+
+            // Yozganda tugmani aktivlashtirish
+            window.quill.on('text-change', check);
+        };
+        document.head.appendChild(script);
+
         const btn = document.getElementById('publishBtn');
         const titleIn = document.getElementById('title');
-        const contentDiv = document.getElementById('content');
-        const authorIn = document.getElementById('author'); // Muallifni olish
+        const authorIn = document.getElementById('author');
 
-        // Yozganda tugmani yoqish
         function check() {
-            if (titleIn.value.trim() || contentDiv.innerText.trim()) btn.classList.add('active');
-            else btn.classList.remove('active');
+            // Quill ichida matn bormi tekshiramiz
+            if (titleIn.value.trim() || (window.quill && window.quill.getText().trim().length > 0)) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
         }
         titleIn.addEventListener('input', check);
-        contentDiv.addEventListener('input', check);
 
-        // Publish bosilganda
         btn.addEventListener('click', async () => {
             if (!btn.classList.contains('active')) return;
+            
+            // Hajmni tekshirish (Firebase Firestore limiti 1MB)
+            const contentHTML = window.quill.root.innerHTML;
+            if (contentHTML.length > 900000) {
+                alert("Diqqat! Maqola hajmi juda katta (ko'p rasm yuklagan bo'lishingiz mumkin). Iltimos, rasmlarni kamaytiring.");
+                return;
+            }
+
             btn.innerText = "SAVING...";
 
             try {
-                // Bazaga yozish
                 const docRef = await addDoc(collection(db, "stories"), {
                     title: titleIn.value,
                     author: authorIn.value,
-                    content: contentDiv.innerHTML,
+                    content: contentHTML, // HTML formatda (rasm va videolar bilan)
                     date: new Date().toLocaleDateString()
                 });
-                
-                // Muvaffaqiyatli bo'lsa, o'qish sahifasiga o'tish
-                // Diqqat: article.html fayli xuddi shu papkada bo'lishi kerak
                 window.location.href = `article.html?id=${docRef.id}`;
             } catch (e) {
-                console.error("Xatolik: ", e);
-                alert("Xatolik yuz berdi: " + e.message);
+                console.error(e);
+                alert("Xatolik: " + e.message);
                 btn.innerText = "PUBLISH";
             }
         });
     </script>
 </body>
-
 </html>
-
-
